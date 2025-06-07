@@ -2,9 +2,9 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use hyper_rustls::HttpsConnector;
-use hyper_util::client::legacy::connect::HttpConnector;
+use hyper_tls::HttpsConnector;
 use hyper_util::client::legacy::Client;
+use hyper_util::client::legacy::connect::HttpConnector;
 pub use prost_reflect::DynamicMessage;
 use prost_reflect::{DescriptorPool, MethodDescriptor, ServiceDescriptor};
 use serde_json::Deserializer;
@@ -18,7 +18,7 @@ use tonic::{IntoRequest, IntoStreamingRequest, Request, Response, Status, Stream
 use crate::codec::DynamicCodec;
 use crate::reflection::{fill_pool_from_files, fill_pool_from_reflection, method_desc_to_path};
 use crate::transport::get_transport;
-use crate::{json_schema, MethodDefinition, ServiceDefinition};
+use crate::{MethodDefinition, ServiceDefinition, json_schema};
 
 #[derive(Clone)]
 pub struct GrpcConnection {

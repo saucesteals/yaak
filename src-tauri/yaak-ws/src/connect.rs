@@ -1,5 +1,4 @@
 use log::info;
-use std::sync::Arc;
 use tauri::http::HeaderMap;
 use tokio::net::TcpStream;
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
@@ -7,7 +6,7 @@ use tokio_tungstenite::tungstenite::handshake::client::Response;
 use tokio_tungstenite::tungstenite::http::HeaderValue;
 use tokio_tungstenite::tungstenite::protocol::WebSocketConfig;
 use tokio_tungstenite::{
-    connect_async_tls_with_config, Connector, MaybeTlsStream, WebSocketStream,
+    Connector, MaybeTlsStream, WebSocketStream, connect_async_tls_with_config,
 };
 
 pub(crate) async fn ws_connect(
@@ -30,7 +29,7 @@ pub(crate) async fn ws_connect(
         req,
         Some(WebSocketConfig::default()),
         false,
-        Some(Connector::Rustls(Arc::new(tls_config))),
+        Some(Connector::NativeTls(tls_config)),
     )
     .await?;
     Ok((stream, response))

@@ -9,8 +9,10 @@ anyhow = "1.0.97"
 async-recursion = "1.1.1"
 dunce = "1.0.4"
 hyper = "1.5.2"
-hyper-rustls = { version = "0.27.5", default-features = false, features = ["http2"] }
 hyper-util = { version = "0.1.10", default-features = false, features = ["client-legacy"] }
+http-body-util = "0.1.1"
+hyper-tls = "0.6.0"
+native-tls = "0.2.11"
 log = "0.4.20"
 md5 = "0.7.0"
 prost = "0.13.4"

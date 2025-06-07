@@ -1,7 +1,7 @@
 use crate::manager::decorate_req;
 use crate::transport::get_transport;
 use async_recursion::async_recursion;
-use hyper_rustls::HttpsConnector;
+use hyper_tls::HttpsConnector;
 use hyper_util::client::legacy::Client;
 use hyper_util::client::legacy::connect::HttpConnector;
 use log::debug;
@@ -54,10 +54,12 @@ impl AutoReflectionClient {
         };
 
         if self.use_v1alpha {
-            let mut request = Request::new(tokio_stream::once(to_v1alpha_request(reflection_request)));
+            let mut request =
+                Request::new(tokio_stream::once(to_v1alpha_request(reflection_request)));
             decorate_req(metadata, &mut request).map_err(|e| e.to_string())?;
 
-            self.client_v1alpha
+            let response = self
+                .client_v1alpha
                 .server_reflection_info(request)
                 .await
                 .map_err(|e| match e.code() {
@@ -70,17 +72,19 @@ impl AutoReflectionClient {
                 .next()
                 .await
                 .expect("steamed response")
-                .map_err(|e| e.to_string())?
-                .message_response
-                .ok_or("No reflection response".to_string())
-                .map(|resp| to_v1_msg_response(resp))
+                .map_err(|e| e.to_string())?;
+
+            let msg_response =
+                response.message_response.ok_or_else(|| "No reflection response".to_string())?;
+
+            Ok(to_v1_msg_response(msg_response))
         } else {
             let mut request = Request::new(tokio_stream::once(reflection_request));
             decorate_req(metadata, &mut request).map_err(|e| e.to_string())?;
 
             let resp = self.client_v1.server_reflection_info(request).await;
-            match resp {
-                Ok(r) => Ok(r),
+            let stream = match resp {
+                Ok(r) => r,
                 Err(e) => match e.code().clone() {
                     tonic::Code::Unimplemented => {
                         // If v1 fails, change to v1alpha and try again
@@ -88,22 +92,25 @@ impl AutoReflectionClient {
                         self.use_v1alpha = true;
                         return self.send_reflection_request(message, metadata).await;
                     }
-                    _ => Err(e),
+                    _ => {
+                        return Err(match e.code() {
+                            tonic::Code::Unavailable => "Failed to connect to endpoint".to_string(),
+                            tonic::Code::Unauthenticated => "Authentication failed".to_string(),
+                            tonic::Code::DeadlineExceeded => "Deadline exceeded".to_string(),
+                            _ => e.to_string(),
+                        });
+                    }
                 },
-            }
-            .map_err(|e| match e.code() {
-                tonic::Code::Unavailable => "Failed to connect to endpoint".to_string(),
-                tonic::Code::Unauthenticated => "Authentication failed".to_string(),
-                tonic::Code::DeadlineExceeded => "Deadline exceeded".to_string(),
-                _ => e.to_string(),
-            })?
-            .into_inner()
-            .next()
-            .await
-            .expect("steamed response")
-            .map_err(|e| e.to_string())?
-            .message_response
-            .ok_or("No reflection response".to_string())
+            };
+
+            let response = stream
+                .into_inner()
+                .next()
+                .await
+                .expect("steamed response")
+                .map_err(|e| e.to_string())?;
+
+            response.message_response.ok_or_else(|| "No reflection response".to_string())
         }
     }
 }
